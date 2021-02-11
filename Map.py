@@ -1,4 +1,5 @@
 from maps.mapapi import map_request
+from maps.geocoder import get_ll_span
 import sys
 import os
 import pygame
@@ -11,8 +12,7 @@ class Map:
         self.manager = manager
         self.width = width
         self.height = height
-        self.params = {'ll': (36.192640, 51.730894), 'spn': (0.05, 0.05), 'l': 'map'}
-        self.start_coords = (36.192640, 51.730894)
+        self.params = {'ll': (36.192640, 51.730894), 'spn': (0.05, 0.05), 'l': 'map', 'pt': None}
         self.map_file = "map.png"
         self.info_loaded = False
         self.request()
@@ -109,7 +109,11 @@ class Map:
     def request(self):
         spn = self.coord_to_string(self.params['spn'])
         ll = self.coord_to_string(self.params['ll'])
-        image = map_request(ll, self.params['l'], spn=spn)
+        pt = self.params['pt']
+        if pt != None:
+            image = map_request(ll, self.params['l'], spn=spn, pt=pt)
+        else:
+            image = map_request(ll, self.params['l'], spn=spn)
         self.update_map(image)
 
     def update_map(self, image):
@@ -122,6 +126,8 @@ class Map:
         self.info_loaded = True
 
     def on_search(self):
+        self.params['ll'] = self.string_to_coord(self.coords_input.get_text())
+        self.params['spn'] = self.string_to_coord(self.spn_input.get_text())
         self.update_data()
         self.request()
 
@@ -132,22 +138,28 @@ class Map:
         if key in valid_actions:
             valid_actions[key](key)
 
-    def clean_coords(self):
-        self.params['ll'] = self.start_coords
-        self.search_input.set_text('')
-        self.update_ui()
-        self.on_search()
-
+    # диспетчер обработки всех действий
     def on_event(self, event):
         if event.type == pygame.USEREVENT:
             if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                 if event.ui_element == self.search_button:
+                    self.get_coordinates_at_address()
                     self.on_search()
-                if event.ui_element == self.clean_button:
-                    self.clean_coords()
         elif event.type == pygame.KEYUP:
             self.on_key_pressed(event.key)
 
+    def get_coordinates_at_address(self):
+        adress = self.search_input.get_text()
+        if adress != '' and adress != 'Не найдено':
+            coordinates, spn = get_ll_span(adress)
+            if coordinates != None:
+                self.coords_input.text = coordinates
+                self.spn_input.text = spn
+                self.params['pt'] = f"{coordinates},pm2rdm"
+            else:
+                self.search_input.text = 'Не найдено'
+
+    # отрисовка класса (в данный момент только отрисовывает карту)
     def draw(self):
         if self.info_loaded:
             self.screen.blit(pygame.image.load(self.map_file), (0, 200))
