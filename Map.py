@@ -17,44 +17,39 @@ class Map:
         self.info_loaded = False
         self.request()
 
+    # создание интерфейса
     def init_ui(self):
         manager, width, height = self.manager, self.width, self.height
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 0, 100, 30), manager=manager, text="Координаты:")
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 50, 100, 30), manager=manager, text="Масштаб:")
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 100, 100, 30), manager=manager, text="Поиск:")
 
-        self.change_map = pygame_gui.elements.ui_drop_down_menu.UIDropDownMenu(
-            options_list=['map', 'sat', 'sat,skl'],
-            starting_option='map',
-            relative_rect=pygame.Rect(490, 0, 110, 40),
-            manager=manager
-        )
-
         self.coords_input = pygame_gui.elements.UITextEntryLine(
-            relative_rect=pygame.Rect(110, 0, width / 2 + 50, height / 2),
+            relative_rect=pygame.Rect(110, 0, width / 2, height / 2),
             manager=manager)
-        self.spn_input = pygame_gui.elements.UITextEntryLine(
-            relative_rect=pygame.Rect(110, 50, width / 2 + 50, height / 2),
+        self.spn_input = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(110, 50, width / 2, height / 2),
                                                              manager=manager)
         self.search_input = pygame_gui.elements.UITextEntryLine(
-            relative_rect=pygame.Rect(110, 100, width / 2 + 50, height / 2),
+            relative_rect=pygame.Rect(110, 100, width / 2, height / 2),
             manager=manager)
 
-        self.search_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 150), (110, 40)),
+        self.search_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 150), (100, 40)),
                                                           text='Искать',
                                                           manager=manager)
-
-        self.clean_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((490, 150), (110, 40)),
-                                                         text='Сброс',
-                                                         manager=manager)
         self.update_ui()
 
+    # служебный метод - преобразует координаты вида (10.2345,10.23456) в строку '10.2345,10.23456'
     def coord_to_string(self, coord):
         return ','.join(map(str, coord))
+
+    # служебный метод - преобразует координаты из строки '10.2345,10.23456'  в кортеж (10.2345,10.23456)
 
     def string_to_coord(self, string):
         return tuple(map(float, string.split(',')))
 
+    # движения (перемещения карты влево-вправо-вниз-вверх при нажатии стрелок на клавиатуре)
+    # вся предобработка и постобработка выполняется в методе move,
+    # методы move_right и и прочие move методы только рассчитывают новые координаты
     def move(self, move):
         moves = {pygame.K_LEFT: self.move_left, pygame.K_RIGHT: self.move_right, pygame.K_UP: self.move_up,
                  pygame.K_DOWN: self.move_down}
@@ -83,11 +78,15 @@ class Map:
         new_lat = lat - lat_spn
         return long, new_lat
 
+    # клавиша page_up - приблизим карту
+
     def scale_up(self, key=None):
         k = 2
         self.params['spn'] = tuple(map(lambda x: x / k, self.params['spn']))
         self.update_ui()
         self.on_search()
+
+    # клавиша page_down - отдалим карту
 
     def scale_down(self, key=None):
         k = 2
@@ -95,17 +94,17 @@ class Map:
         self.update_ui()
         self.on_search()
 
+    # из параметров в self.params заполняем поля в интерфейсе
     def update_ui(self):
         self.coords_input.set_text(self.coord_to_string(self.params['ll']))
         self.spn_input.set_text(self.coord_to_string(self.params['spn']))
 
-    def update_change_map(self, change):
-        self.params['l'] = change
-
+    # из полей в интерфейсе заполняем данные в self.params
     def update_data(self):
         self.params['ll'] = self.string_to_coord(self.coords_input.get_text())
         self.params['spn'] = self.string_to_coord(self.spn_input.get_text())
 
+    # совершает запрос в API и обновляет карту
     def request(self):
         spn = self.coord_to_string(self.params['spn'])
         ll = self.coord_to_string(self.params['ll'])
@@ -116,6 +115,8 @@ class Map:
             image = map_request(ll, self.params['l'], spn=spn)
         self.update_map(image)
 
+    # обновление файла с картой
+
     def update_map(self, image):
         try:
             with open(self.map_file, "wb") as file:
@@ -125,12 +126,14 @@ class Map:
             sys.exit(2)
         self.info_loaded = True
 
+    # действие при нажатии  кнопки поиска
     def on_search(self):
         self.params['ll'] = self.string_to_coord(self.coords_input.get_text())
         self.params['spn'] = self.string_to_coord(self.spn_input.get_text())
         self.update_data()
         self.request()
 
+    # дисперчер обработки нажатия клавиш пользователем
     def on_key_pressed(self, key):
         valid_actions = {pygame.K_PAGEUP: self.scale_up, pygame.K_PAGEDOWN: self.scale_down,
                          pygame.K_LEFT: self.move, pygame.K_RIGHT: self.move, pygame.K_UP: self.move,
