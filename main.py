@@ -6,7 +6,7 @@ if __name__ == '__main__':
 
     pygame.init()
     pygame.display.set_caption('')
-    width, height = 1024, 768
+    width, height = 610, 660
     size = width, height
     manager = pygame_gui.UIManager(size)
 
@@ -18,17 +18,18 @@ if __name__ == '__main__':
     yamap = Map(screen, manager, width, height)
     yamap.init_ui()
 
-    # manager.set_visual_debug_mode(True)
-
     while running:
         for event in pygame.event.get():
+            if event.type == pygame.USEREVENT:
+                if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
+                    yamap.update_change_map(event.text)
             if event.type == pygame.QUIT:
                 running = False
             manager.process_events(event)
             yamap.on_event(event)
         dt = clock.tick(fps)
         manager.update(dt)
-        screen.fill('#000000')
+        screen.fill('#6699FF')
         yamap.draw()
         manager.draw_ui(screen)
         pygame.display.flip()
