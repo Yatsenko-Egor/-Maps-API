@@ -15,13 +15,17 @@ class Map:
         self.start_coords = (36.192640, 51.730894)
         self.map_file = "map.png"
         self.info_loaded = False
+        self.main_long, self.main_lat = 36.192640, 51.730894
         self.request()
 
     def init_ui(self):
         manager, width, height = self.manager, self.width, self.height
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 0, 100, 30), manager=manager, text="Координаты:")
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 50, 100, 30), manager=manager, text="Масштаб:")
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 100, 100, 30), manager=manager, text="Поиск:")
+        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 0, 100, 30), manager=manager,
+                                    text="Координаты:")
+        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 50, 100, 30), manager=manager,
+                                    text="Масштаб:")
+        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(0, 100, 100, 30), manager=manager,
+                                    text="Поиск:")
 
         self.change_map = pygame_gui.elements.ui_drop_down_menu.UIDropDownMenu(
             options_list=['map', 'sat', 'sat,skl'],
@@ -35,18 +39,20 @@ class Map:
             manager=manager)
         self.spn_input = pygame_gui.elements.UITextEntryLine(
             relative_rect=pygame.Rect(110, 50, width / 2 + 50, height / 2),
-                                                             manager=manager)
+            manager=manager)
         self.search_input = pygame_gui.elements.UITextEntryLine(
             relative_rect=pygame.Rect(110, 100, width / 2 + 50, height / 2),
             manager=manager)
 
-        self.search_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 150), (110, 40)),
-                                                          text='Искать',
-                                                          manager=manager)
+        self.search_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((0, 150), (110, 40)),
+            text='Искать',
+            manager=manager)
 
-        self.clean_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((490, 150), (110, 40)),
-                                                         text='Сброс',
-                                                         manager=manager)
+        self.clean_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((490, 150), (110, 40)),
+            text='Сброс',
+            manager=manager)
         self.update_ui()
 
     def coord_to_string(self, coord):
@@ -56,7 +62,8 @@ class Map:
         return tuple(map(float, string.split(',')))
 
     def move(self, move):
-        moves = {pygame.K_LEFT: self.move_left, pygame.K_RIGHT: self.move_right, pygame.K_UP: self.move_up,
+        moves = {pygame.K_LEFT: self.move_left, pygame.K_RIGHT: self.move_right,
+                 pygame.K_UP: self.move_up,
                  pygame.K_DOWN: self.move_down}
         if move not in moves:
             return
@@ -68,30 +75,30 @@ class Map:
         self.on_search()
 
     def move_right(self, long, lat, long_spn, lat_spn):
-        new_long = long + long_spn * 2
+        new_long = min(long + long_spn * 2, 179)
         return new_long, lat
 
     def move_left(self, long, lat, long_spn, lat_spn):
-        new_long = long - long_spn * 2
+        new_long = max(long - long_spn * 2, -179)
         return new_long, lat
 
     def move_up(self, long, lat, long_spn, lat_spn):
-        new_lat = lat + lat_spn
+        new_lat = min(lat + lat_spn, 85)
         return long, new_lat
 
     def move_down(self, long, lat, long_spn, lat_spn):
-        new_lat = lat - lat_spn
+        new_lat = max(lat - lat_spn, -85)
         return long, new_lat
 
     def scale_up(self, key=None):
         k = 2
-        self.params['spn'] = tuple(map(lambda x: x / k, self.params['spn']))
+        self.params['spn'] = tuple(map(lambda x: max(x / k, 0.0015625), self.params['spn']))
         self.update_ui()
         self.on_search()
 
     def scale_down(self, key=None):
         k = 2
-        self.params['spn'] = tuple(map(lambda x: x * k, self.params['spn']))
+        self.params['spn'] = tuple(map(lambda x: min(x * k, 51.2), self.params['spn']))
         self.update_ui()
         self.on_search()
 
@@ -127,13 +134,15 @@ class Map:
 
     def on_key_pressed(self, key):
         valid_actions = {pygame.K_PAGEUP: self.scale_up, pygame.K_PAGEDOWN: self.scale_down,
-                         pygame.K_LEFT: self.move, pygame.K_RIGHT: self.move, pygame.K_UP: self.move,
+                         pygame.K_LEFT: self.move, pygame.K_RIGHT: self.move,
+                         pygame.K_UP: self.move,
                          pygame.K_DOWN: self.move}
         if key in valid_actions:
             valid_actions[key](key)
 
     def clean_coords(self):
         self.params['ll'] = self.start_coords
+        self.main_long, self.main_lat = self.start_coords
         self.search_input.set_text('')
         self.update_ui()
         self.on_search()
@@ -142,11 +151,19 @@ class Map:
         if event.type == pygame.USEREVENT:
             if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                 if event.ui_element == self.search_button:
+                    self.set_main_coords()
                     self.on_search()
                 if event.ui_element == self.clean_button:
                     self.clean_coords()
         elif event.type == pygame.KEYUP:
             self.on_key_pressed(event.key)
+
+    def set_main_coords(self):
+        long, lat = self.string_to_coord(self.coords_input.get_text())
+        if not (-179 <= long <= 179) or not (-85 <= lat <= 85):
+            self.coords_input.set_text(self.coord_to_string(self.params['ll']))
+        else:
+            self.main_long, self.main_lat = self.string_to_coord(self.coords_input.get_text())
 
     def draw(self):
         if self.info_loaded:
